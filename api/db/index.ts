@@ -6,8 +6,13 @@ dotenv.config();
 
 // WebSocket is needed for the Neon serverless driver in Node.js
 // In serverless environments (Vercel), this is handled automatically
-if (typeof WebSocket === 'undefined') {
-    neonConfig.webSocketConstructor = ws as unknown as typeof WebSocket;
+if (!process.env.VERCEL && typeof WebSocket === 'undefined') {
+    try {
+        const ws = await import('ws');
+        neonConfig.webSocketConstructor = ws.default;
+    } catch (e) {
+        console.warn('Could not import ws, but it might not be needed if WebSocket is globally available.');
+    }
 }
 
 const pool = new Pool({

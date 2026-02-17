@@ -135,9 +135,12 @@ export default function DocumentChat() {
                 <div className="flex-1 min-w-0">
                     <h1 className="text-lg font-bold text-dark-200 truncate">{doc.filename}</h1>
                     <div className="flex items-center gap-3 mt-0.5">
-                        <span className={`text-xs font-bold uppercase px-2 py-0.5 rounded ${doc.file_type === 'pdf' ? 'bg-red-500/20 text-red-400' : 'bg-blue-500/20 text-blue-400'
+                        <span className={`text-xs font-bold uppercase px-2 py-0.5 rounded ${doc.file_type === 'pdf' ? 'bg-red-500/20 text-red-400' :
+                                doc.file_type === 'docx' ? 'bg-blue-600/20 text-blue-400' :
+                                    ['jpg', 'jpeg', 'png', 'webp'].includes(doc.file_type) ? 'bg-purple-500/20 text-purple-400' :
+                                        'bg-gray-500/20 text-gray-400'
                             }`}>
-                            {doc.file_type}
+                            {doc.file_type.length > 4 ? doc.file_type.slice(0, 3) : doc.file_type}
                         </span>
                         <span className="text-dark-500 text-xs">{formatFileSize(doc.file_size)}</span>
                         <span className="text-dark-600 text-xs">•</span>
@@ -171,8 +174,8 @@ export default function DocumentChat() {
                             <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                                 <div
                                     className={`max-w-[80%] p-4 rounded-2xl text-sm leading-relaxed ${msg.role === 'user'
-                                            ? 'bg-primary-600/20 text-primary-100 rounded-br-md'
-                                            : 'bg-dark-700/60 text-dark-200 rounded-bl-md border border-dark-600/30'
+                                        ? 'bg-primary-600/20 text-primary-100 rounded-br-md'
+                                        : 'bg-dark-700/60 text-dark-200 rounded-bl-md border border-dark-600/30'
                                         }`}
                                 >
                                     <p className="whitespace-pre-wrap">{msg.content}</p>

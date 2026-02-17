@@ -88,9 +88,13 @@ router.post('/login', async (req: Request, res: Response) => {
                 status: user.status,
             },
         });
-    } catch (err) {
+    } catch (err: any) {
         console.error('Login error:', err);
-        res.status(500).json({ error: 'Internal server error' });
+        // Specialized error handling for connection issues
+        if (err.code === 'ECONNREFUSED' || err.message.includes('connect')) {
+            return res.status(503).json({ error: 'Database connection failed. Please try again later.' });
+        }
+        res.status(500).json({ error: `Internal server error: ${err.message}` });
     }
 });
 

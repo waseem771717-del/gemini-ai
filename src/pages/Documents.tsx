@@ -97,9 +97,16 @@ export default function Documents() {
         setSuccess('');
 
         // Client-side validation
-        const allowedTypes = ['application/pdf', 'text/plain'];
+        const allowedTypes = [
+            'application/pdf',
+            'text/plain',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'image/jpeg',
+            'image/png',
+            'image/webp'
+        ];
         if (!allowedTypes.includes(file.type)) {
-            setError('Only PDF and TXT files are allowed.');
+            setError('Only PDF, TXT, DOCX, and Image files are allowed.');
             return;
         }
         if (file.size > 10 * 1024 * 1024) {
@@ -191,8 +198,8 @@ export default function Documents() {
                     <button
                         onClick={() => setShowAll(!showAll)}
                         className={`text-sm px-4 py-2 rounded-xl border transition-all ${showAll
-                                ? 'bg-primary-600/20 text-primary-400 border-primary-500/30'
-                                : 'text-dark-400 border-dark-700 hover:text-dark-200'
+                            ? 'bg-primary-600/20 text-primary-400 border-primary-500/30'
+                            : 'text-dark-400 border-dark-700 hover:text-dark-200'
                             }`}
                     >
                         {showAll ? 'All Documents' : 'My Documents'}
@@ -221,14 +228,14 @@ export default function Documents() {
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
                 className={`glass-card p-8 mb-8 text-center cursor-pointer transition-all duration-300 ${dragOver
-                        ? 'border-primary-400 bg-primary-500/10 shadow-lg shadow-primary-500/10'
-                        : 'hover:border-dark-500 hover:bg-dark-700/30'
+                    ? 'border-primary-400 bg-primary-500/10 shadow-lg shadow-primary-500/10'
+                    : 'hover:border-dark-500 hover:bg-dark-700/30'
                     } ${uploading ? 'opacity-60 pointer-events-none' : ''}`}
             >
                 <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".pdf,.txt,application/pdf,text/plain"
+                    accept=".pdf,.txt,.docx,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/*"
                     onChange={handleFileSelect}
                     className="hidden"
                 />
@@ -247,7 +254,7 @@ export default function Documents() {
                                 <p className="text-dark-200 font-medium">
                                     Drop a file here or <span className="text-primary-400">browse</span>
                                 </p>
-                                <p className="text-dark-500 text-xs mt-1">PDF or TXT • Max 10MB</p>
+                                <p className="text-dark-500 text-xs mt-1">PDF, DOCX, TXT, Images • Max 10MB</p>
                             </div>
                         </>
                     )}
@@ -275,11 +282,12 @@ export default function Documents() {
                             className="glass-card p-4 flex items-center gap-4 hover:bg-dark-700/40 transition-all group"
                         >
                             {/* File icon */}
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold uppercase ${doc.file_type === 'pdf'
-                                    ? 'bg-red-500/20 text-red-400'
-                                    : 'bg-blue-500/20 text-blue-400'
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold uppercase ${doc.file_type === 'pdf' ? 'bg-red-500/20 text-red-400' :
+                                    doc.file_type === 'docx' ? 'bg-blue-600/20 text-blue-400' :
+                                        ['jpg', 'jpeg', 'png', 'webp'].includes(doc.file_type) ? 'bg-purple-500/20 text-purple-400' :
+                                            'bg-gray-500/20 text-gray-400'
                                 }`}>
-                                {doc.file_type}
+                                {doc.file_type.length > 4 ? doc.file_type.slice(0, 3) : doc.file_type}
                             </div>
 
                             {/* Info */}

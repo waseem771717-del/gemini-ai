@@ -11,12 +11,14 @@ const router = Router();
 router.use(authenticate);
 
 // ── Multer config ──────────────────────────────────────
-const UPLOAD_DIR = path.join(process.cwd(), 'uploads');
+const UPLOAD_DIR = process.env.VERCEL ? '/tmp' : path.join(process.cwd(), 'uploads');
 
 const storage = multer.diskStorage({
     destination: (req, _file, cb) => {
         const userDir = path.join(UPLOAD_DIR, req.user!.id);
-        fs.mkdirSync(userDir, { recursive: true });
+        if (!fs.existsSync(userDir)) {
+            fs.mkdirSync(userDir, { recursive: true });
+        }
         cb(null, userDir);
     },
     filename: (_req, file, cb) => {
@@ -27,7 +29,14 @@ const storage = multer.diskStorage({
     },
 });
 
-const ALLOWED_TYPES = ['application/pdf', 'text/plain'];
+const ALLOWED_TYPES = [
+    'application/pdf',
+    'text/plain',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'image/jpeg',
+    'image/png',
+    'image/webp'
+];
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
 const upload = multer({
@@ -37,7 +46,7 @@ const upload = multer({
         if (ALLOWED_TYPES.includes(file.mimetype)) {
             cb(null, true);
         } else {
-            cb(new Error('Only PDF and TXT files are allowed'));
+            cb(new Error('Allowed formats: PDF, TXT, DOCX, JPG, PNG, WEBP'));
         }
     },
 });
@@ -55,6 +64,43 @@ async function extractPdfText(filePath: string): Promise<string> {
 /** Extract text from a TXT file */
 function extractTxtText(filePath: string): string {
     return fs.readFileSync(filePath, 'utf-8');
+}
+
+/** Extract text from a DOCX file */
+async function extractDocxText(filePath: string): Promise<string> {
+    const mammoth = (await import('mammoth')).default;
+    const result = await mammoth.extractRawText({ path: filePath });
+    return result.value;
+}
+
+/** Extract text from an Image using Gemini */
+async function extractImageText(filePath: string, fileType: string): Promise<string> {
+    const { GoogleGenerativeAI } = await import('@google/generative-ai');
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+        throw new Error('GEMINI_API_KEY is not configured for Image OCR');
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+    const fileBuffer = fs.readFileSync(filePath);
+    const mimeType = fileType === 'jpg' ? 'image/jpeg' : `image/${fileType}`;
+
+    const prompt = "Extract all text from this image. Return ONLY the text, no conversational filler.";
+
+    const result = await model.generateContent([
+        prompt,
+        {
+            inlineData: {
+                data: fileBuffer.toString('base64'),
+                mimeType
+            }
+        }
+    ]);
+
+    return result.response.text();
 }
 
 /** Split text into overlapping chunks */
@@ -189,7 +235,10 @@ router.post('/upload', (req: Request, res: Response) => {
 
         try {
             const file = req.file;
-            const fileType = file.mimetype === 'application/pdf' ? 'pdf' : 'txt';
+            let fileType = 'txt';
+            if (file.mimetype === 'application/pdf') fileType = 'pdf';
+            else if (file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') fileType = 'docx';
+            else if (file.mimetype.startsWith('image/')) fileType = file.mimetype.split('/')[1];
 
             // Insert document record
             const docResult = await pool.query(
@@ -217,9 +266,17 @@ router.post('/upload', (req: Request, res: Response) => {
 async function processDocument(docId: string, filePath: string, fileType: string) {
     try {
         // Extract text
-        let text: string;
+        if (!fs.existsSync(filePath)) {
+            throw new Error(`File not found at path: ${filePath}`);
+        }
+
+        let text: string = '';
         if (fileType === 'pdf') {
             text = await extractPdfText(filePath);
+        } else if (fileType === 'docx') {
+            text = await extractDocxText(filePath);
+        } else if (['jpg', 'jpeg', 'png', 'webp'].includes(fileType)) {
+            text = await extractImageText(filePath, fileType);
         } else {
             text = extractTxtText(filePath);
         }
@@ -352,6 +409,8 @@ router.delete('/:id', async (req: Request, res: Response) => {
         try {
             if (fs.existsSync(doc.file_path)) {
                 fs.unlinkSync(doc.file_path);
+            } else {
+                console.warn(`File not found for deletion: ${doc.file_path}`);
             }
         } catch (e) {
             console.error('Failed to delete file:', e);
